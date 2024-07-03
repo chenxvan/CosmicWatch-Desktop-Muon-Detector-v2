@@ -46,12 +46,13 @@ unsigned long time_measurement              = 0L;      // Time stamp
 unsigned long interrupt_timer               = 0L;      // Time stamp
 int           start_time                    = 0L;      // Start time reference variable
 long int      total_deadtime                = 0L;      // total time between signals
-int           event_start_time              = 0L;
-int           event_end_time                = 0L;
-int           event_duration                = 0L;
 
 unsigned long measurement_t1;
 unsigned long measurement_t2;
+
+unsigned long event_start_time              = 0L;
+unsigned long event_end_time                = 0L;
+unsigned long event_duration                = 0L;
 
 float temperatureC;
 
@@ -118,17 +119,17 @@ void loop() {
   Serial.println(F("##########################################################################################"));
   Serial.println(F("### CosmicWatch: The Desktop Muon Detector"));
   Serial.println(F("### Questions? saxani@mit.edu"));
-  Serial.println(F("### Comp_date Comp_time Event Ardn_time[ms] ADC[0-1023] SiPM[mV] Deadtime[ms] Temp[C] Name"));
+  Serial.println(F("### Comp_date Comp_time Event Ardn_time[ms] ADC[0-1023] SiPM[mV] Deadtime[ms] Temp[C] Name EventDuration[us]"));
   Serial.println(F("##########################################################################################"));
   Serial.println("Device ID: " + (String)detector_name);
 
   myFile.println(F("##########################################################################################"));
   myFile.println(F("### CosmicWatch: The Desktop Muon Detector"));
   myFile.println(F("### Questions? saxani@mit.edu"));
-  myFile.println(F("### Comp_date Comp_time Event Ardn_time[ms] ADC[0-1023] SiPM[mV] Deadtime[ms] Temp[C] Name"));
+  myFile.println(F("### Comp_date Comp_time Event Ardn_time[ms] ADC[0-1023] SiPM[mV] Deadtime[ms] Temp[C] Name EventDuration[us]"));
   myFile.println(F("##########################################################################################"));
   myFile.println("Device ID: " + (String)detector_name);
-
+   
   write_to_SD();
   }
 }
@@ -158,6 +159,7 @@ void setup_files(){
 void write_to_SD(){ 
   while (1){
     if (analogRead(A0) > SIGNAL_THRESHOLD){
+      event_start_time = micros();
       int adc = analogRead(A0);
       
       if (MASTER == 1) {digitalWrite(6, HIGH);
@@ -167,6 +169,7 @@ void write_to_SD(){
       analogRead(A3);
       
       if (SLAVE == 1){
+          
           if (digitalRead(6) == HIGH){
               keep_pulse = 1;
               count++;}} 
@@ -174,52 +177,38 @@ void write_to_SD(){
       
       if (MASTER == 1){
             digitalWrite(6, LOW);}
-      measurement_t1 = micros(); 
+
       measurement_deadtime = total_deadtime;
       time_stamp = millis() - start_time;
-      //measurement_t1 = micros();  
+      measurement_t1 = micros();  
       temperatureC = (((analogRead(A3)+analogRead(A3)+analogRead(A3))/3. * (3300./1024)) - 500)/10. ;
-/*
-      if (MASTER == 1) {
-          digitalWrite(6, LOW); 
-          analogWrite(3, LED_BRIGHTNESS);
-          Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC);
-          myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC);
-          myFile.flush();
-          last_adc_value = adc;}
-  
-      if (SLAVE == 1) {
-          if (keep_pulse == 1){   
-              analogWrite(3, LED_BRIGHTNESS);
-              Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC);
-              myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC);
-              myFile.flush();
-              last_adc_value = adc;}}
-*/              
-      keep_pulse = 0;
-      digitalWrite(3, LOW);
-      while(analogRead(A0) > RESET_THRESHOLD){continue;}
-      event_duration = (micros() - measurement_t1);
-      
-      if (MASTER == 1) {
-          digitalWrite(6, LOW); 
-          analogWrite(3, LED_BRIGHTNESS);
-          Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " "+event_duration);
-          myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " "+event_duration);
-          myFile.flush();
-          last_adc_value = adc;}
-  
-      if (SLAVE == 1) {
-          if (keep_pulse == 1){   
-              analogWrite(3, LED_BRIGHTNESS);
-              Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " "+event_duration);
-              myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " "+event_duration);
-              myFile.flush();
-              last_adc_value = adc;}}
 
       
-      total_deadtime += (micros() - measurement_t1) / 1000.;}
+      while(analogRead(A0) > RESET_THRESHOLD){continue;}
+      event_end_time = micros();
+      event_duration = event_end_time - event_start_time;
+
+      if (MASTER == 1) {
+          digitalWrite(6, LOW); 
+          analogWrite(3, LED_BRIGHTNESS);
+          Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " " +event_duration);
+          myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " " +event_duration);
+          myFile.flush();
+          last_adc_value = adc;}
   
+      if (SLAVE == 1) {
+          if (keep_pulse == 1){   
+              analogWrite(3, LED_BRIGHTNESS);
+              Serial.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " " +event_duration);
+              myFile.println((String)count + " " + time_stamp+ " " + adc+ " " + get_sipm_voltage(adc)+ " " + measurement_deadtime+ " " + temperatureC+ " " +event_duration);
+              myFile.flush();
+              last_adc_value = adc;}}
+              
+      keep_pulse = 0;
+      digitalWrite(3, LOW);
+      //while(analogRead(A0) > RESET_THRESHOLD){continue;}
+      
+      total_deadtime += (micros() - measurement_t1) / 1000.;}
     }
 }
 
